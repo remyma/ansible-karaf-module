@@ -11,6 +11,32 @@ Ansible module to manage karaf features
 DOCUMENTATION = '''
 ---
 module: karaf_feature
+short_description: Install or uninstall Karaf features.
+description:
+    - Install or uninstall Karaf features.
+options:
+    name:
+        description:
+            - name of the feature to install or uninstall
+        required: true
+        default: null
+    version:
+        description:
+            - version of the feature to install or uninstall
+        required: false
+        default: null
+    state:
+        description:
+            - feature state
+        required: false
+        default: present
+        choices: [ "present", "absent" ]
+    force:
+        description:
+            - force feature install.
+            - if force is true, feature will be uninstalled first, then re-installed
+        required: false
+        default: false
 '''
 
 EXAMPLES = '''
@@ -24,7 +50,7 @@ EXAMPLES = '''
 - karaf_feature: state=present name="camel-jms" version="2.18.1"
 
 # Force install
-- karaf_feature: state=present name="camel-jms" version="2.18.1" force=true
+- karaf_feature: state=present name="camel-jms" version="2.18.1" force="true"
 '''
 
 PACKAGE_STATE_MAP = dict(
