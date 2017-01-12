@@ -31,12 +31,6 @@ options:
         required: false
         default: present
         choices: [ "present", "absent" ]
-    force:
-        description:
-            - force feature install.
-            - if force is true, feature will be uninstalled first, then re-installed
-        required: false
-        default: false
 '''
 
 EXAMPLES = '''
@@ -48,9 +42,6 @@ EXAMPLES = '''
 
 # Install karaf feature versioned
 - karaf_feature: state=present name="camel-jms" version="2.18.1"
-
-# Force install
-- karaf_feature: state=present name="camel-jms" version="2.18.1" force="true"
 '''
 
 PACKAGE_STATE_MAP = dict(
@@ -146,7 +137,6 @@ def main():
             name=dict(required=True),
             version=dict(default=None),
             state=dict(default="present", choices=PACKAGE_STATE_MAP.keys()),
-            force=dict(default=False),
             client_bin=dict(default="/opt/karaf/bin/client", type="path")
         )
     )
@@ -154,31 +144,21 @@ def main():
     name = module.params["name"]
     version = module.params["version"]
     state = module.params["state"]
-    force = module.params["force"]
     client_bin = module.params["client_bin"]
 
     full_qualified_name = name
     if version:
         full_qualified_name = full_qualified_name + "/" + version
 
+    is_installed = is_feature_installed(client_bin, module, name, version)
     changed = False
     cmd = ''
     out = ''
     err = ''
-    if force == True and state == "present":
-        module.fail_json(msg=force)
-        uninstall_feature(client_bin, module, full_qualified_name)
+    if state == "present":
         changed, cmd, out, err = install_feature(client_bin, module, full_qualified_name)
-    else:
-        is_installed = is_feature_installed(client_bin, module, name, version)
-        # skip if the state is correct
-        if (is_installed and state == "present") or (state == "absent" and not is_installed):
-            module.exit_json(changed=False, name=full_qualified_name, state=state)
-
-        if state == "present":
-            changed, cmd, out, err = install_feature(client_bin, module, full_qualified_name)
-        elif state == "absent":
-            changed, cmd, out, err = uninstall_feature(client_bin, module, full_qualified_name)
+    elif is_installed:
+        changed, cmd, out, err = uninstall_feature(client_bin, module, full_qualified_name)
 
     module.exit_json(changed=changed, cmd=cmd, name=full_qualified_name, state=state, stdout=out, stderr=err)
 
