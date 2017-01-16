@@ -33,8 +33,8 @@ PACKAGE_STATE_MAP = dict(
     absent="repo-remove"
 )
 
-CLIENT_KARAF_COMMAND = "{0} '{1}'"
-CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} '{1} {2}'"
+CLIENT_KARAF_COMMAND = "feature:{0} '{1}'"
+CLIENT_KARAF_COMMAND_WITH_ARGS = "feature:{0} '{1} {2}'"
 
 
 def add_repo(client_bin, module, repo_url):
