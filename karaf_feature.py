@@ -54,38 +54,57 @@ CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
 CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'feature:{1} {2}'"
 
 
-def install_feature(client_bin, module, feature_name):
+def install_feature(client_bin, module, feature_name, feature_version):
     """Call karaf client command to install a feature
 
     :param client_bin: karaf client command bin
     :param module: ansible module
     :param feature_name: name of feature to install
+    :param feature_version: version of feature to install
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["present"], feature_name)
+    full_qualified_name = feature_name
+    if feature_version:
+        full_qualified_name = full_qualified_name + "/" + feature_version
+    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["present"], full_qualified_name)
     rc, out, err = module.run_command(cmd)
 
     if rc != 0:
         reason = parse_error(out)
         module.fail_json(msg=reason)
 
+    # Check that feature is installed
+    is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
+    if is_installed:
+        module.fail_json(msg='Feature is ' + FEATURE_STATE_UNINSTALLED)
+
     return True, cmd, out, err
 
 
-def uninstall_feature(client_bin, module, feature_name):
+def uninstall_feature(client_bin, module, feature_name, feature_version):
     """Call karaf client command to uninstall a feature
 
     :param client_bin: karaf client command bin
     :param module: ansible module
     :param feature_name: name of feature to install
+    :param feature_version: version of feature to install
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["absent"], feature_name)
+    full_qualified_name = feature_name
+    if feature_version:
+        full_qualified_name = full_qualified_name + "/" + feature_version
+    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["absent"], full_qualified_name)
     rc, out, err = module.run_command(cmd)
 
     if rc != 0:
         reason = parse_error(out)
         module.fail_json(msg=reason)
+
+    # TODO : add pause and loop n times until feature is uninstalled.
+    # Check that feature is uninstalled
+    is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
+    if not is_installed:
+        module.fail_json(msg='Feature is not ' + FEATURE_STATE_UNINSTALLED)
 
     return True, cmd, out, err
 
@@ -104,10 +123,14 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
     rc, out, err = module.run_command(cmd)
     lines = out.split('\n')
 
+    # Feature version in karaf use . instead of - when feature is deployed.
+    # For instance, snapshot version will be 1.0.0.SNAPSHOT instead of 1.0.0-SNAPSHOT
+    feature_version = feature_version.replace('-', '.')
+
     is_installed = False
     for line in lines:
         feature_data = line.split('|')
-        if len(feature_data) > 2:
+        if len(feature_data) > 3:
             name = feature_data[0].strip()
             version = feature_data[1].strip()
             state = feature_data[3].strip()
@@ -118,6 +141,7 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
                         is_installed = True
                 else:
                     if name == feature_name:
+                        module.fail_json(msg=line)
                         is_installed = True
 
     return is_installed
@@ -146,21 +170,17 @@ def main():
     state = module.params["state"]
     client_bin = module.params["client_bin"]
 
-    full_qualified_name = name
-    if version:
-        full_qualified_name = full_qualified_name + "/" + version
-
     is_installed = is_feature_installed(client_bin, module, name, version)
     changed = False
     cmd = ''
     out = ''
     err = ''
     if state == "present":
-        changed, cmd, out, err = install_feature(client_bin, module, full_qualified_name)
+        changed, cmd, out, err = install_feature(client_bin, module, name, version)
     elif is_installed:
-        changed, cmd, out, err = uninstall_feature(client_bin, module, full_qualified_name)
+        changed, cmd, out, err = uninstall_feature(client_bin, module, name, version)
 
-    module.exit_json(changed=changed, cmd=cmd, name=full_qualified_name, state=state, stdout=out, stderr=err)
+    module.exit_json(changed=changed, cmd=cmd, name=name, state=state, stdout=out, stderr=err)
 
 if __name__ == '__main__':
     main()
