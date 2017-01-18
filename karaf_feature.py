@@ -73,10 +73,10 @@ def install_feature(client_bin, module, feature_name, feature_version):
         reason = parse_error(out)
         module.fail_json(msg=reason)
 
-    # Check that feature is installed
+    # If feature is still uninstalled, fails.
     is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
-    if is_installed:
-        module.fail_json(msg='Feature is ' + FEATURE_STATE_UNINSTALLED)
+    if not is_installed:
+        module.fail_json(msg='Feature fails to install')
 
     return True, cmd, out, err
 
@@ -100,11 +100,9 @@ def uninstall_feature(client_bin, module, feature_name, feature_version):
         reason = parse_error(out)
         module.fail_json(msg=reason)
 
-    # TODO : add pause and loop n times until feature is uninstalled.
-    # Check that feature is uninstalled
     is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
-    if not is_installed:
-        module.fail_json(msg='Feature is not ' + FEATURE_STATE_UNINSTALLED)
+    if is_installed:
+        module.fail_json(msg='Feature fails to uninstall')
 
     return True, cmd, out, err
 
@@ -175,7 +173,7 @@ def main():
     cmd = ''
     out = ''
     err = ''
-    if state == "present":
+    if state == "present" and not is_installed:
         changed, cmd, out, err = install_feature(client_bin, module, name, version)
     elif is_installed:
         changed, cmd, out, err = uninstall_feature(client_bin, module, name, version)
