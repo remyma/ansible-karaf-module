@@ -35,13 +35,21 @@ options:
 
 EXAMPLES = '''
 # Install karaf feature
-- karaf_feature: state=present name="camel-jms"
+- karaf_feature: state="present" name="camel-jms"
 
 # Uninstall karaf feature
-- karaf_feature: state=absent name="camel-jms"
+- karaf_feature: state="absent" name="camel-jms"
 
 # Install karaf feature versioned
-- karaf_feature: state=present name="camel-jms" version="2.18.1"
+- karaf_feature: state="present" name="camel-jms" version="2.18.1"
+
+# Uninstall multiple features
+- name: "Uninstall features"
+  karaf_feature: state="absent" name="{{ item.name }}" version="{{ item.version }}"
+  with_items:
+    - { name: "camel-jms", version: "2.18.1" }
+    - { name: "camel-xml", version: "2.18.1" }
+
 '''
 
 PACKAGE_STATE_MAP = dict(
@@ -175,7 +183,7 @@ def main():
     err = ''
     if state == "present" and not is_installed:
         changed, cmd, out, err = install_feature(client_bin, module, name, version)
-    elif is_installed:
+    elif state == "absent" and is_installed:
         changed, cmd, out, err = uninstall_feature(client_bin, module, name, version)
 
     module.exit_json(changed=changed, cmd=cmd, name=name, state=state, stdout=out, stderr=err)
