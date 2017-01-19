@@ -19,18 +19,24 @@ options:
 
 EXAMPLES = '''
 # Install karaf repo
-- karaf_repo: state=present url="mvn:org.apache.camel.karaf/apache-camel/2.18.1/xml/features"
+- karaf_repo: state="present" url="mvn:org.apache.camel.karaf/apache-camel/2.18.1/xml/features"
 
 # Uninstall karaf repo
-- karaf_repo: state=absent url="mvn:org.apache.camel.karaf/apache-camel/2.18.1/xml/features"
+- karaf_repo: state="absent" url="mvn:org.apache.camel.karaf/apache-camel/2.18.1/xml/features"
+
+# Refresh karaf repo
+- karaf_repo: state="refresh" url="mvn:org.apache.camel.karaf/apache-camel/2.18.1/xml/features"
 '''
 
 STATE_PRESENT = "present"
 STATE_ABSENT = "absent"
+STATE_REFRESH = "refresh"
 
 PACKAGE_STATE_MAP = dict(
     present="repo-add",
-    absent="repo-remove"
+    absent="repo-remove",
+    refresh="repo-refresh"
+
 )
 
 CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
@@ -77,6 +83,24 @@ def remove_repo(client_bin, module, repo_url):
     return True, cmd, out, err
 
 
+def refresh_repo(client_bin, module, repo_url):
+    """Call karaf client command to refresh a repository
+
+    :param client_bin: karaf client command bin
+    :param module: ansible module
+    :param repo_url: url of repo to remove
+    :return: command, ouput command message, error command message
+    """
+    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_REFRESH], repo_url)
+    rc, out, err = module.run_command(cmd)
+
+    if rc != 0:
+        reason = parse_error(out)
+        module.fail_json(msg=reason)
+
+    return True, cmd, out, err
+
+
 def parse_error(string):
     reason = "reason: "
     try:
@@ -98,10 +122,16 @@ def main():
     state = module.params["state"]
     client_bin = module.params["client_bin"]
 
+    changed = False
+    cmd = ''
+    out = ''
+    err = ''
     if state == STATE_PRESENT:
         changed, cmd, out, err = add_repo(client_bin, module, url)
-    else:
+    elif state == STATE_PRESENT:
         changed, cmd, out, err = remove_repo(client_bin, module, url)
+    elif state == STATE_REFRESH:
+        changed, cmd, out, err = refresh_repo(client_bin, module, url)
 
     module.exit_json(changed=changed, cmd=cmd, name=url, state=state, stdout=out, stderr=err)
 
