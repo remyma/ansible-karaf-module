@@ -66,3 +66,28 @@ Otherwise the check for the state will fails.
     - { name: "camel-jms", version: "2.18.1" }
     - { name: "camel-xml", version: "2.18.1" }
 ```
+
+## Karaf Bundles management
+
+This module allow you to install / uninstall / refresh / ... bundles on a karaf server.
+
+### Options
+
+| Parameter     | Required      | Default       | Choices       | Comments      |
+| ------------- | ------------- | ------------- | ------------- | ------------- |
+| url           | yes          |               |               | Url of the bundle to install |
+| state         | no            | present       |  present / absent / start / stop / restart / refresh / update | indicate the desired state of the resource |
+ 
+
+### Examples
+
+```yaml
+# Install karaf bundle
+- karaf_bundle: state="present" url="mvn:org.apache.camel/camel-example-osgi/2.15.2"
+
+# Uninstall karaf bundle
+- karaf_bundle: state="absent" url="mvn:org.apache.camel/camel-example-osgi/2.15.2"
+
+# Refresh karaf bundle
+- karaf_bundle: state="refresh" url="mvn:org.apache.camel/camel-example-osgi/2.15.2"
+```
