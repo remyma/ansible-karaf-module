@@ -128,6 +128,9 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
     cmd = CLIENT_KARAF_COMMAND.format(client_bin, 'list')
     rc, out, err = module.run_command(cmd)
     lines = out.split('\n')
+    
+    if not feature_version:
+        feature_version = ''
 
     # Feature version in karaf use . instead of - when feature is deployed.
     # For instance, snapshot version will be 1.0.0.SNAPSHOT instead of 1.0.0-SNAPSHOT
