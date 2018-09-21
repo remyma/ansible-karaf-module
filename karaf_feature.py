@@ -125,7 +125,7 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
     :return: True if feature is installed, False if not
     """
 
-    cmd = CLIENT_KARAF_COMMAND.format(client_bin, 'list')
+    cmd = CLIENT_KARAF_COMMAND.format(client_bin, 'list -i')
     rc, out, err = module.run_command(cmd)
     lines = out.split('\n')
     
@@ -138,20 +138,25 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
 
     is_installed = False
     for line in lines:
-        feature_data = line.split('|')
-        if len(feature_data) > 3:
-            name = feature_data[0].strip()
-            version = feature_data[1].strip()
-            state = feature_data[3].strip()
-
-            if state != FEATURE_STATE_UNINSTALLED:
-                if feature_version:
-                    if name == feature_name and version == feature_version:
-                        is_installed = True
-                else:
-                    if name == feature_name:
-                        module.fail_json(msg=line)
-                        is_installed = True
+        feature_data = line.split('\xe2\x94\x82')
+        if len(feature_data) < 4:
+            continue
+        
+        name = feature_data[0].strip()
+        version = feature_data[1].strip()
+        state = feature_data[3].strip()
+        
+        if name != feature_name:
+            continue
+        
+        if state != FEATURE_STATE_UNINSTALLED:
+            if feature_version:
+                if version == feature_version:
+                    is_installed = True
+                    return is_installed
+            else:
+                is_installed = True
+                return is_installed
 
     return is_installed
 
