@@ -3,6 +3,53 @@
 
 from ansible.module_utils.basic import *
 
+DOCUMENTATION = '''
+---
+module: karaf_config
+
+short_description: A module for manipulating the configuration in a running karaf instance
+
+version_added: "2.5"
+
+description:
+    - Set or delete one or more properties in a running karaf instance
+
+options:
+    name:
+        description:
+            - name of the service pid
+        required: true
+    properties:
+        description:
+            - a dictionary with property name (key) and its value
+        required: true
+        type: dict
+    state:
+        description:
+            - property state
+        required: false
+        default: present
+        choices: [ "present", "absent" ]
+'''
+
+EXAMPLES = '''
+# Set a property
+- name: Test with a message
+  karaf_config:
+    name: org.apache.karaf.kar
+    state: present
+    properties:
+      noAutoStartBundles: false
+      
+# Remove property
+- name: Test2 - Delete config
+  karaf_config:
+    name: org.apache.karaf.kar
+    state: absent
+    properties:
+      key1:                
+'''
+
 PACKAGE_STATE_MAP = dict(
     present="property-set",
     absent="property-delete"
@@ -79,7 +126,7 @@ def config_property_delete(client_bin, module, name, properties):
     result = dict(
         changed=False,
         original_message='',
-        message=''
+        message='',
     )
     
     existing_props = existing_properties(module, client_bin, name, properties)
