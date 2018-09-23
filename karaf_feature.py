@@ -61,6 +61,7 @@ FEATURE_STATE_UNINSTALLED = 'Uninstalled'
 CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
 CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'feature:{1} {2}'"
 
+_KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
 def install_feature(client_bin, module, feature_name, feature_version):
     """Call karaf client command to install a feature
@@ -138,7 +139,7 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
 
     is_installed = False
     for line in lines:
-        feature_data = line.split('\xe2\x94\x82')
+        feature_data = line.split(_KARAF_COLUMN_SEPARATOR)
         if len(feature_data) < 4:
             continue
         
