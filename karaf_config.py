@@ -110,14 +110,14 @@ def config_property_set(client_bin, module, name, new_properties):
     result['changed'] = True
     if module.check_mode:
         return result
+
+    cmd_base = 'config:property-set %s %s'
     
-#     result['diff'] = {
-#         "before": "hello",
-#         "after": "goodbye"
-#         }
-#     
-    cmd_base = 'config:property-set --pid "%s" %s %s'
-    cmd = ' && '.join([ cmd_base % (name, k, v) for k,v in new_properties.items() if k in need_change])
+    cmds = []
+    cmds.append('config:edit %s' % name)  
+    cmds.extend([cmd_base % (k, v) for k,v in new_properties.items() if k in need_change])
+    cmds.append("config:update")
+    cmd = ' && '.join(cmds)
     rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
     
     return result
