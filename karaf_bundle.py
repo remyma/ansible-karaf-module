@@ -68,37 +68,32 @@ def run_with_check(module, cmd):
 
     return out
 
-def install_bundle(client_bin, module, bundle_url):
-    """Call karaf client command to install a bundle
-
-    :param client_bin: karaf client command bin
-    :param module: ansible module
-    :param bundle_url: maven url of bundle to install
-    :return: changed, command, bundle_id, ouput command message, error command message
-    """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["present"], bundle_url)
-    run_with_check(module, cmd)
-    
-    install_result = out.split(':')
-    bundle_id = install_result[1].strip()
-
-    # Parse out to get Bundle id.
-    return True, cmd, bundle_id, out, err
-
-
-def launch_bundle_action(client_bin, module, bundle_id, action):
+def launch_bundle_action(client_bin, module, url, bundle_id, action):
     """Call karaf client command to execute a bundle action on a bundle id
 
     :param client_bin: karaf client command bin
     :param module: ansible module
-    :param bundle_id: id of bundle to install
+    :param url: url of bundle to install
+    :param bundle_id: id of bundle to execute action
     :param action: bundle action to perform
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, action, bundle_id)
-    out = run_with_check(module, cmd)
+    result = dict(
+        changed=True,
+        original_message='',
+        name = bundle_id,
+        message='',
+    )
+    
+    if module.check_mode:
+        return result
+    
+    bnd_ref = url if action == 'install' else bundle_id
 
-    return True, cmd, out, ''
+    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, action, bnd_ref)
+    out = run_with_check(module, cmd)
+    
+    return result
 
 def is_bundles_installed(client_bin, module, bundle_url):
     karaf_cmd = '%s "bundle:list -t 0 -u"' % (client_bin)
@@ -131,7 +126,8 @@ def main():
             url=dict(required=True),
             state=dict(default="present", choices=PACKAGE_STATE_MAP.keys()),
             client_bin=dict(default="/opt/karaf/bin/client", type="path")
-        )
+        ),
+        supports_check_mode=True
     )
 
     url = module.params["url"]
@@ -143,15 +139,17 @@ def main():
     if  state == 'present' and \
         existing_bundle is not None and \
         existing_bundle['url'] == url:
-        return module.exit_json(changed=False, cmd='', name=existing_bundle['id'], state=state, stdout='', stderr='')
+        return module.exit_json(changed=False, name=existing_bundle['id'])
 
-    # Get Bundle id by executing an install. If bundle is already installed, it will return bundle id.
-    changed, cmd, bundle_id, out, err = install_bundle(client_bin, module, url)
+    result = launch_bundle_action(
+            client_bin,
+            module, 
+            url, 
+            existing_bundle['id'] if existing_bundle is not None else None, 
+            PACKAGE_STATE_MAP[state]
+            )
 
-    if bundle_id:
-        changed, cmd, out, err = launch_bundle_action(client_bin, module, bundle_id, state)
-
-    module.exit_json(changed=changed, cmd=cmd, name=bundle_id, state=state, stdout=out, stderr=err)
+    module.exit_json(**result)
 
 if __name__ == '__main__':
     main()
