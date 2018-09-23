@@ -55,6 +55,19 @@ CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'bundle:{1} {2}'"
 
 _KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
+def run_with_check(module, cmd):
+    rc, out, err = module.run_command(cmd)
+    
+    bundle_id = None
+    if  rc != 0 or \
+        'Error executing command' in out or \
+        'Command not found' in out:
+        reason = parse_error(out)
+        module.fail_json(msg=reason)
+        raise Exception(out)
+
+    return out
+
 def install_bundle(client_bin, module, bundle_url):
     """Call karaf client command to install a bundle
 
@@ -64,15 +77,10 @@ def install_bundle(client_bin, module, bundle_url):
     :return: changed, command, bundle_id, ouput command message, error command message
     """
     cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["present"], bundle_url)
-    rc, out, err = module.run_command(cmd)
-
-    bundle_id = None
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
-    else:
-        install_result = out.split(':')
-        bundle_id = install_result[1].strip()
+    run_with_check(module, cmd)
+    
+    install_result = out.split(':')
+    bundle_id = install_result[1].strip()
 
     # Parse out to get Bundle id.
     return True, cmd, bundle_id, out, err
@@ -88,21 +96,13 @@ def launch_bundle_action(client_bin, module, bundle_id, action):
     :return: command, ouput command message, error command message
     """
     cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, action, bundle_id)
-    rc, out, err = module.run_command(cmd)
+    out = run_with_check(module, cmd)
 
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
-
-    return True, cmd, out, err
+    return True, cmd, out, ''
 
 def is_bundles_installed(client_bin, module, bundle_url):
     karaf_cmd = '%s "bundle:list -t 0 -u"' % (client_bin)
-    rc, out, err = module.run_command(karaf_cmd)
-
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+    out = run_with_check(module, karaf_cmd)
     
     existing_bundle = None
     
@@ -123,12 +123,7 @@ def is_bundles_installed(client_bin, module, bundle_url):
     return existing_bundle
 
 def parse_error(string):
-    reason = "reason: "
-    try:
-        return string[string.index(reason) + len(reason):].strip()
-    except ValueError:
-        return string
-
+    return string
 
 def main():
     module = AnsibleModule(
