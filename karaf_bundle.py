@@ -20,11 +20,6 @@ options:
             - Url of the bundles to install or uninstall
         required: true if state is "present"
         default: null
-    id:
-        description:
-            - Bundle id.
-        required: true if state is one of "absent", "start", "stop", "restart", "refresh", "update"
-        default: null
     state:
         description:
             - bundle state
@@ -58,6 +53,7 @@ PACKAGE_STATE_MAP = dict(
 CLIENT_KARAF_COMMAND = "{0} 'bundle:{1}'"
 CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'bundle:{1} {2}'"
 
+_KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
 def install_bundle(client_bin, module, bundle_url):
     """Call karaf client command to install a bundle
@@ -100,6 +96,31 @@ def launch_bundle_action(client_bin, module, bundle_id, action):
 
     return True, cmd, out, err
 
+def is_bundles_installed(client_bin, module, bundle_url):
+    karaf_cmd = '%s "bundle:list -t 0 -u"' % (client_bin)
+    rc, out, err = module.run_command(karaf_cmd)
+
+    if rc != 0:
+        reason = parse_error(out)
+        module.fail_json(msg=reason)
+    
+    existing_bundle = None
+    
+    for line in out.split('\n'):
+        if line[-len(bundle_url):] != bundle_url:
+            continue
+        
+        columns = [e.strip() for e in line.split(_KARAF_COLUMN_SEPARATOR)]
+
+        existing_bundle = {
+            'id':           int(columns[0]),
+            'state':        columns[1],
+            'start_level':  int(columns[2]),
+            'version':      columns[3],
+            'url':          columns[4]
+            }
+    
+    return existing_bundle
 
 def parse_error(string):
     reason = "reason: "
@@ -121,6 +142,13 @@ def main():
     url = module.params["url"]
     state = module.params["state"]
     client_bin = module.params["client_bin"]
+    
+    existing_bundle = is_bundles_installed(client_bin, module, url)
+    
+    if  state == 'present' and \
+        existing_bundle is not None and \
+        existing_bundle['url'] == url:
+        return module.exit_json(changed=False, cmd='', name=existing_bundle['id'], state=state, stdout='', stderr='')
 
     # Get Bundle id by executing an install. If bundle is already installed, it will return bundle id.
     changed, cmd, bundle_id, out, err = install_bundle(client_bin, module, url)
