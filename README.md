@@ -119,38 +119,38 @@ This module allow you to install / uninstall / refresh / ... multiple bundles on
 ```yaml
 # Install karaf bundles
 - karaf_bundles: 
-	state: present 
-	urls
-		- mvn:org.apache.camel/camel-example-osgi/2.15.2
-       - mvn:com.google.code.gson/gson/2.8.5
+    state: present 
+    urls:
+      - mvn:org.apache.camel/camel-example-osgi/2.15.2
+      - mvn:com.google.code.gson/gson/2.8.5
 
 # Uninstall karaf bundles
 - karaf_bundles: 
-	state: absent 
-	urls
-		- mvn:org.apache.camel/camel-example-osgi/2.15.2
-       - mvn:com.google.code.gson/gson/2.8.5
+    state: absent 
+    urls:
+      - mvn:org.apache.camel/camel-example-osgi/2.15.2
+      - mvn:com.google.code.gson/gson/2.8.5
 
 # Start karaf bundles
 - karaf_bundles: 
-	state: start 
-	urls
-		- mvn:org.apache.camel/camel-example-osgi/2.15.2
-       - mvn:com.google.code.gson/gson/2.8.5
+    state: start 
+    urls:
+      - mvn:org.apache.camel/camel-example-osgi/2.15.2
+      - mvn:com.google.code.gson/gson/2.8.5
 
 # Stop karaf bundles
 - karaf_bundles: 
-	state: stop
-	urls
-		- mvn:org.apache.camel/camel-example-osgi/2.15.2
-       - mvn:com.google.code.gson/gson/2.8.5
+    state: stop
+    urls:
+      - mvn:org.apache.camel/camel-example-osgi/2.15.2
+      - mvn:com.google.code.gson/gson/2.8.5
 
 # Refresh karaf bundles
 - karaf_bundles: 
-	state: refresh
-	urls
-		- mvn:org.apache.camel/camel-example-osgi/2.15.2
-       - mvn:com.google.code.gson/gson/2.8.5
+    state: refresh
+    urls:
+      - mvn:org.apache.camel/camel-example-osgi/2.15.2
+      - mvn:com.google.code.gson/gson/2.8.5
 ```
 
 ## Karaf Configuration management
