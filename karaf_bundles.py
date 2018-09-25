@@ -68,20 +68,43 @@ def launch_bundles_action(client_bin, module, bundles, state):
     :param action: bundle action to perform
     :return: command, ouput command message, error command message
     """
+    karaf_action = PACKAGE_STATE_MAP[state]
+
     result = dict(
-        changed=True,
+        changed=False,
         original_message='',
         message='',
+        meta = {}
     )
     
+    affected_bundles = bundles
+
+    if karaf_action == 'start':
+        # Check if we need to start any bundle
+        stoped_bundles = [b for b in bundles if b['state'] != 'Active']
+        if len(stoped_bundles) < 1:
+            result['meta']['msg'] = 'All bundles already started'
+            return result
+        
+        affected_bundles = stoped_bundles
+        
+    elif karaf_action == 'stop':
+        # Check if there are any bundles that we need to stop
+        active_bundles = [b for b in bundles if b['state'] == 'Active']
+        if len(active_bundles) < 1:
+            result['meta']['msg'] = 'No running bundles found'
+            return result
+            
+        affected_bundles = active_bundles
+        
+    result['changed'] = True
     if module.check_mode:
         return result
     
-    karaf_action = PACKAGE_STATE_MAP[state]
     karaf_cmd_base = 'bundle:%s %s'
     bundles_dict_key= 'url' if karaf_action == 'install' else 'id'
     
-    cmds = [karaf_cmd_base % (karaf_action, b[bundles_dict_key]) for b in bundles]
+    cmds = [karaf_cmd_base % (karaf_action, b[bundles_dict_key]) for b in affected_bundles]
     
     out = run_with_check(module, '%s "%s"' % (client_bin, ' && '.join(cmds)))
     
