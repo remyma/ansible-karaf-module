@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from ansible.module_utils.basic import *
+import os.path
 
 """
 Ansible module to manage karaf features
