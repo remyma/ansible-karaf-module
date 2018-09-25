@@ -154,10 +154,22 @@ def main():
 
     existing_bundle = is_bundles_installed(client_bin, module, url)
     
-    if  state == 'present' and \
-        existing_bundle is not None and \
-        existing_bundle['url'] == url:
-        return module.exit_json(changed=False, name=existing_bundle['id'])
+    # Bundle is installed
+    if existing_bundle is not None:
+        if  state == 'present' and \
+            existing_bundle['url'] == url:
+            return module.exit_json(changed=False, name=existing_bundle['id'], msg = 'Bundle already installed')
+
+        if state == 'start' and existing_bundle['state'] == 'Active':
+            return module.exit_json(changed = False, name=existing_bundle['id'], msg = 'Bundle already started')
+
+        if state == 'stop' and existing_bundle['state'] != 'Active':
+            return module.exit_json(changed = False, name=existing_bundle['id'], msg = 'Bundle already stopped')
+    
+    # if no bundle installed with given URL
+    else:
+        if state != 'present':
+            return module.fail_json(msg = "Can not execute action on a non-existing bundle, Could not find a bundle installed with URL: %s" % (url,))
 
     result = launch_bundle_action(
             client_bin,
