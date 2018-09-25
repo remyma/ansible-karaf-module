@@ -31,6 +31,11 @@ options:
         required: false
         default: present
         choices: [ "present", "absent" ]
+    client_bin:
+        description:
+            - path to the 'client' program in karaf, can also point to the root of the karaf installation '/opt/karaf'
+        required: false
+        default: /opt/karaf/bin/client
 '''
 
 EXAMPLES = '''
@@ -169,6 +174,16 @@ def parse_error(string):
     except ValueError:
         return string
 
+def check_client_bin_path(client_bin):
+    if os.path.isfile(client_bin):
+        return client_bin
+    
+    if os.path.isdir(client_bin):
+        test = os.path.join(client_bin, 'bin/client')
+        if os.path.isfile(test):
+            return test
+    else:
+        raise Exception('client_bin parameter not supported: %s' % client_bin)
 
 def main():
     module = AnsibleModule(
@@ -184,6 +199,8 @@ def main():
     version = module.params["version"]
     state = module.params["state"]
     client_bin = module.params["client_bin"]
+
+    client_bin = check_client_bin_path(client_bin)
 
     is_installed = is_feature_installed(client_bin, module, name, version)
     changed = False

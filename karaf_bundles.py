@@ -21,6 +21,11 @@ options:
         required: false
         default: present
         choices: [ "present", "absent", "start", "stop", "restart", "refresh", "update" ]
+    client_bin:
+        description:
+            - path to the 'client' program in karaf, can also point to the root of the karaf installation '/opt/karaf'
+        required: false
+        default: /opt/karaf/bin/client
 '''
 
 EXAMPLES = '''
@@ -137,6 +142,17 @@ def is_bundles_installed(client_bin, module, urls):
 
     return existing_bundles
 
+def check_client_bin_path(client_bin):
+    if os.path.isfile(client_bin):
+        return client_bin
+    
+    if os.path.isdir(client_bin):
+        test = os.path.join(client_bin, 'bin/client')
+        if os.path.isfile(test):
+            return test
+    else:
+        raise Exception('client_bin parameter not supported: %s' % client_bin)
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -156,6 +172,8 @@ def main():
     urls = module.params["urls"]
     state = module.params["state"]
     client_bin = module.params["client_bin"]
+
+    client_bin = check_client_bin_path(client_bin)
 
     existing = is_bundles_installed(client_bin, module, urls)
     

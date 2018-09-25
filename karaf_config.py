@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from ansible.module_utils.basic import *
+import os.path
 
 DOCUMENTATION = '''
 ---
@@ -30,6 +31,11 @@ options:
         required: false
         default: present
         choices: [ "present", "absent" ]
+    client_bin:
+        description:
+            - path to the 'client' program in karaf, can also point to the root of the karaf installation '/opt/karaf'
+        required: false
+        default: /opt/karaf/bin/client
 '''
 
 EXAMPLES = '''
@@ -145,6 +151,17 @@ def config_property_delete(client_bin, module, name, properties):
     rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
     return result
 
+def check_client_bin_path(client_bin):
+    if os.path.isfile(client_bin):
+        return client_bin
+    
+    if os.path.isdir(client_bin):
+        test = os.path.join(client_bin, 'bin/client')
+        if os.path.isfile(test):
+            return test
+    else:
+        raise Exception('client_bin parameter not supported: %s' % client_bin)
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -160,6 +177,8 @@ def main():
     state = module.params["state"]
     client_bin = module.params["client_bin"]
     properties = module.params["properties"]
+    
+    client_bin = check_client_bin_path(client_bin)
     
     if state == "present":
         result = config_property_set(client_bin, module, name, properties)
