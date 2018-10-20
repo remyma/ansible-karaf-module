@@ -59,7 +59,7 @@ def run_with_check(module, cmd):
     if  rc != 0 or \
         'Error executing command' in out or \
         'Command not found' in out:
-        reason = parse_error(out)
+        reason = out
         module.fail_json(msg=reason)
         raise Exception(out)
 
