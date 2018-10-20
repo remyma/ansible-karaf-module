@@ -93,11 +93,11 @@ def run_with_check(module, cmd):
     return out
 
 def existing_properties(module, client_bin, name, new_properties):
-    cmd_base = 'config:property-get --raw --pid %s %s'
-    karaf_cmd = ' && '.join([cmd_base % (name, prop) for prop in new_properties.keys()])
+    karaf_cmd = 'config:property-list --pid %s' % (name,)
 
     out = run_with_check(module, '%s "%s"' % (client_bin, karaf_cmd))    
     lines = out.split('\n')
+    
     result = {}
     
     for line in lines:
@@ -106,8 +106,12 @@ def existing_properties(module, client_bin, name, new_properties):
         
         i = line.find('=')
         prop_name = line[:i].strip()
-        value = convert(line[i+1:].strip())
+        
+        # Don't bother to save properties that is not in new_properties
+        if prop_name not in new_properties:
+            continue
             
+        value = convert(line[i+1:].strip())
         result[prop_name] = value
     
     return result
