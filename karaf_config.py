@@ -80,11 +80,23 @@ def convert(val):
         except ValueError:
             pass
 
+def run_with_check(module, cmd):
+    rc, out, err = module.run_command(cmd)
+    
+    if  rc != 0 or \
+        'Error executing command' in out or \
+        'Command not found' in out:
+        reason = out
+        module.fail_json(msg=reason)
+        raise Exception(out)
+
+    return out
+
 def existing_properties(module, client_bin, name, new_properties):
     cmd_base = 'config:property-get --raw --pid %s %s'
     karaf_cmd = ' && '.join([cmd_base % (name, prop) for prop in new_properties.keys()])
-    
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, karaf_cmd))
+
+    out = run_with_check(module, '%s "%s"' % (client_bin, karaf_cmd))    
     lines = out.split('\n')
     result = {}
     
@@ -124,7 +136,7 @@ def config_property_set(client_bin, module, name, new_properties):
     cmds.extend([cmd_base % (k, v) for k,v in new_properties.items() if k in need_change])
     cmds.append("config:update")
     cmd = ' && '.join(cmds)
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
+    out = run_with_check(module, '%s "%s"' % (client_bin, cmd))
     
     return result
 
@@ -148,7 +160,7 @@ def config_property_delete(client_bin, module, name, properties):
     
     cmd_base = 'config:property-delete --pid "%s" %s'
     cmd = ' && '.join([ cmd_base % (name, k) for k in properties.keys() if k in need_delete])
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
+    run_with_check(module, '%s "%s"' % (client_bin, cmd))
     return result
 
 def check_client_bin_path(client_bin):
