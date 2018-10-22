@@ -80,12 +80,24 @@ def convert(val):
         except ValueError:
             pass
 
-def existing_properties(module, client_bin, name, new_properties):
-    cmd_base = 'config:property-get --raw --pid %s %s'
-    karaf_cmd = ' && '.join([cmd_base % (name, prop) for prop in new_properties.keys()])
+def run_with_check(module, cmd):
+    rc, out, err = module.run_command(cmd)
     
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, karaf_cmd))
+    if  rc != 0 or \
+        'Error executing command' in out or \
+        'Command not found' in out:
+        reason = out
+        module.fail_json(msg=reason)
+        raise Exception(out)
+
+    return out
+
+def existing_properties(module, client_bin, name, new_properties):
+    karaf_cmd = 'config:property-list --pid %s' % (name,)
+
+    out = run_with_check(module, '%s "%s"' % (client_bin, karaf_cmd))    
     lines = out.split('\n')
+    
     result = {}
     
     for line in lines:
@@ -94,8 +106,12 @@ def existing_properties(module, client_bin, name, new_properties):
         
         i = line.find('=')
         prop_name = line[:i].strip()
-        value = convert(line[i+1:].strip())
+        
+        # Don't bother to save properties that is not in new_properties
+        if prop_name not in new_properties:
+            continue
             
+        value = convert(line[i+1:].strip())
         result[prop_name] = value
     
     return result
@@ -124,7 +140,7 @@ def config_property_set(client_bin, module, name, new_properties):
     cmds.extend([cmd_base % (k, v) for k,v in new_properties.items() if k in need_change])
     cmds.append("config:update")
     cmd = ' && '.join(cmds)
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
+    out = run_with_check(module, '%s "%s"' % (client_bin, cmd))
     
     return result
 
@@ -148,7 +164,7 @@ def config_property_delete(client_bin, module, name, properties):
     
     cmd_base = 'config:property-delete --pid "%s" %s'
     cmd = ' && '.join([ cmd_base % (name, k) for k in properties.keys() if k in need_delete])
-    rc, out, err = module.run_command('%s "%s"' % (client_bin, cmd))
+    run_with_check(module, '%s "%s"' % (client_bin, cmd))
     return result
 
 def check_client_bin_path(client_bin):
