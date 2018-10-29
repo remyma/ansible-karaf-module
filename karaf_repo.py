@@ -115,7 +115,10 @@ def add_repo(client_bin, module, repo_url):
         cmd = cmd,
     )
 
-    # TODO : check if repo is added.
+    repos = get_existing_repos(module, client_bin)
+    if repo_url not in repos:
+        module.fail_json(msg='Repo ("%s") did not install' % repo_url)
+        raise Exception(out)
 
     return result
 
@@ -140,7 +143,10 @@ def remove_repo(client_bin, module, repo_url):
         cmd = cmd,
     )
 
-    # TODO : check if repo is removed.
+    repos = get_existing_repos(module, client_bin)
+    if repo_url in repos:
+        module.fail_json(msg='Repo ("%s") is still installed' % repo_url)
+        raise Exception(out)
 
     return result
 
