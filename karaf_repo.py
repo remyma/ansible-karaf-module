@@ -58,6 +58,42 @@ PACKAGE_STATE_MAP = dict(
 CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
 CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'feature:{1} {2}'"
 
+_KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
+
+def run_with_check(module, cmd):
+    rc, out, err = module.run_command(cmd)
+    
+    bundle_id = None
+    if  rc != 0 or \
+        'Error executing command' in out or \
+        'Command not found' in out:
+        reason = out
+        module.fail_json(msg=reason)
+        raise Exception(out)
+
+    return out
+
+def get_existing_repos(module, client_bin):
+    karaf_cmd = '%s "feature:repo-list"'
+    out = run_with_check(module, karaf_cmd % (client_bin,))
+    
+    existing_repos = {}
+    
+    for line in out.split('\n'):
+        split = line.split(_KARAF_COLUMN_SEPARATOR)
+
+        if len(split) != 2:
+            continue
+        
+        repo_name = split[0].strip()
+        repo_url = split[1].strip()
+        
+        existing_repos[repo_url] = {
+                'name': repo_name,
+                'url': repo_url,
+            }
+
+    return existing_repos
 
 def add_repo(client_bin, module, repo_url):
     """Call karaf client command to add a repo
@@ -68,15 +104,23 @@ def add_repo(client_bin, module, repo_url):
     :return: command, ouput command message, error command message
     """
     cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_PRESENT], repo_url)
-    rc, out, err = module.run_command(cmd)
+    out = run_with_check(module, cmd)
 
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+    result = dict(
+        changed=True,
+        original_message='',
+        message='',
+        meta = {},
+        out = out,
+        cmd = cmd,
+    )
 
-    # TODO : check if repo is added.
+    repos = get_existing_repos(module, client_bin)
+    if repo_url not in repos:
+        module.fail_json(msg='Repo ("%s") did not install' % repo_url)
+        raise Exception(out)
 
-    return True, cmd, out, err
+    return result
 
 
 def remove_repo(client_bin, module, repo_url):
@@ -88,15 +132,23 @@ def remove_repo(client_bin, module, repo_url):
     :return: command, ouput command message, error command message
     """
     cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_ABSENT], repo_url)
-    rc, out, err = module.run_command(cmd)
+    out = run_with_check(module, cmd)
 
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+    result = dict(
+        changed=True,
+        original_message='',
+        message='',
+        meta = {},
+        out = out,
+        cmd = cmd,
+    )
 
-    # TODO : check if repo is removed.
+    repos = get_existing_repos(module, client_bin)
+    if repo_url in repos:
+        module.fail_json(msg='Repo ("%s") is still installed' % repo_url)
+        raise Exception(out)
 
-    return True, cmd, out, err
+    return result
 
 
 def refresh_repo(client_bin, module, repo_url):
@@ -108,14 +160,18 @@ def refresh_repo(client_bin, module, repo_url):
     :return: command, ouput command message, error command message
     """
     cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_REFRESH], repo_url)
-    rc, out, err = module.run_command(cmd)
+    out = run_with_check(module, cmd)
+    
+    result = dict(
+        changed=True,
+        original_message='',
+        message='',
+        meta = {},
+        out = out,
+        cmd = cmd,
+    )
 
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
-
-    return True, cmd, out, err
-
+    return result
 
 def parse_error(string):
     reason = "reason: "
@@ -149,19 +205,26 @@ def main():
     client_bin = module.params["client_bin"]
 
     client_bin = check_client_bin_path(client_bin)
+    
+    existing_repos = get_existing_repos(module, client_bin)
 
-    changed = False
-    cmd = ''
-    out = ''
-    err = ''
-    if state == STATE_PRESENT:
-        changed, cmd, out, err = add_repo(client_bin, module, url)
-    elif state == STATE_PRESENT:
-        changed, cmd, out, err = remove_repo(client_bin, module, url)
+    result = dict(
+        changed=False,
+        original_message='',
+        message='',
+    )
+    
+    if state == STATE_PRESENT and url not in existing_repos:
+        result = add_repo(client_bin, module, url)
+    elif state == STATE_ABSENT and url in existing_repos:
+        result = remove_repo(client_bin, module, url)
     elif state == STATE_REFRESH:
-        changed, cmd, out, err = refresh_repo(client_bin, module, url)
+        if url not in existing_repos:
+            module.fail_json(msg='The given repository ("%s") is not available and can therefore not be refreshed' % url)
+        else:
+            result = refresh_repo(client_bin, module, url)
 
-    module.exit_json(changed=changed, cmd=cmd, name=url, state=state, stdout=out, stderr=err)
+    module.exit_json(**result)
 
 if __name__ == '__main__':
     main()
