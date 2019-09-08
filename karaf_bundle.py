@@ -56,20 +56,20 @@ PACKAGE_STATE_MAP = dict(
     update="update"
 )
 
-CLIENT_KARAF_COMMAND = "{0} 'bundle:{1}'"
-CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'bundle:{1} {2}'"
+CLIENT_KARAF_COMMAND = "bundle:{0}"
+CLIENT_KARAF_COMMAND_WITH_ARGS = "bundle:{0} {1}"
 
 _KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
-def run_with_check(module, cmd):
-    rc, out, err = module.run_command(cmd)
+def run_with_check(module, cmd, arg):
+    rc, out, err = module.run_command('%s -b' % (cmd,), data=arg)
     
-    bundle_id = None
     if  rc != 0 or \
         'Error executing command' in out or \
-        'Command not found' in out:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+        'Command not found' in out or\
+        len(err) > 0:
+        reason = out
+        module.fail_json(msg=reason, cmd=cmd, cmd_err=err, cmd_return=rc)
         raise Exception(out)
 
     return out
@@ -96,14 +96,14 @@ def launch_bundle_action(client_bin, module, url, bundle_id, action):
     
     bnd_ref = url if action == 'install' else bundle_id
 
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, action, bnd_ref)
-    out = run_with_check(module, cmd)
+    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(action, bnd_ref)
+    out = run_with_check(module, client_bin, cmd)
     
     return result
 
 def is_bundles_installed(client_bin, module, bundle_url):
-    karaf_cmd = '%s "bundle:list -t 0 -u"' % (client_bin)
-    out = run_with_check(module, karaf_cmd)
+    karaf_cmd = 'bundle:list -t 0 -u'
+    out = run_with_check(module, client_bin, karaf_cmd)
     
     existing_bundle = None
     

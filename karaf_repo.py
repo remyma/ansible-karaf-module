@@ -55,27 +55,27 @@ PACKAGE_STATE_MAP = dict(
 
 )
 
-CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
-CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'feature:{1} {2}'"
+CLIENT_KARAF_COMMAND = "feature:{0}"
+CLIENT_KARAF_COMMAND_WITH_ARGS = "feature:{0} {1}"
 
 _KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
-def run_with_check(module, cmd):
-    rc, out, err = module.run_command(cmd)
+def run_with_check(module, cmd, arg):
+    rc, out, err = module.run_command('%s -b' % (cmd,), data=arg)
     
-    bundle_id = None
     if  rc != 0 or \
         'Error executing command' in out or \
-        'Command not found' in out:
+        'Command not found' in out or\
+        len(err) > 0:
         reason = out
-        module.fail_json(msg=reason)
+        module.fail_json(msg=reason, cmd=cmd, cmd_err=err, cmd_return=rc)
         raise Exception(out)
 
     return out
 
 def get_existing_repos(module, client_bin):
-    karaf_cmd = '%s "feature:repo-list"'
-    out = run_with_check(module, karaf_cmd % (client_bin,))
+    karaf_cmd = 'feature:repo-list'
+    out = run_with_check(module, client_bin, karaf_cmd)
     
     existing_repos = {}
     
@@ -103,8 +103,8 @@ def add_repo(client_bin, module, repo_url):
     :param repo_url: url of repo to add
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_PRESENT], repo_url)
-    out = run_with_check(module, cmd)
+    arg = CLIENT_KARAF_COMMAND_WITH_ARGS.format(PACKAGE_STATE_MAP[STATE_PRESENT], repo_url)
+    out = run_with_check(module, client_bin, arg)
 
     result = dict(
         changed=True,
@@ -112,7 +112,7 @@ def add_repo(client_bin, module, repo_url):
         message='',
         meta = {},
         out = out,
-        cmd = cmd,
+        cmd = arg,
     )
 
     repos = get_existing_repos(module, client_bin)
@@ -131,8 +131,8 @@ def remove_repo(client_bin, module, repo_url):
     :param repo_url: url of repo to remove
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_ABSENT], repo_url)
-    out = run_with_check(module, cmd)
+    arg = CLIENT_KARAF_COMMAND_WITH_ARGS.format(PACKAGE_STATE_MAP[STATE_ABSENT], repo_url)
+    out = run_with_check(module, client_bin, arg)
 
     result = dict(
         changed=True,
@@ -140,7 +140,7 @@ def remove_repo(client_bin, module, repo_url):
         message='',
         meta = {},
         out = out,
-        cmd = cmd,
+        cmd = arg,
     )
 
     repos = get_existing_repos(module, client_bin)
@@ -159,8 +159,8 @@ def refresh_repo(client_bin, module, repo_url):
     :param repo_url: url of repo to remove
     :return: command, ouput command message, error command message
     """
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP[STATE_REFRESH], repo_url)
-    out = run_with_check(module, cmd)
+    arg = CLIENT_KARAF_COMMAND_WITH_ARGS.format(PACKAGE_STATE_MAP[STATE_REFRESH], repo_url)
+    out = run_with_check(module, client_bin, arg)
     
     result = dict(
         changed=True,
@@ -168,7 +168,7 @@ def refresh_repo(client_bin, module, repo_url):
         message='',
         meta = {},
         out = out,
-        cmd = cmd,
+        cmd = arg,
     )
 
     return result

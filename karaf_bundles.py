@@ -52,15 +52,15 @@ PACKAGE_STATE_MAP = dict(
 
 _KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
 
-def run_with_check(module, cmd):
-    rc, out, err = module.run_command(cmd)
+def run_with_check(module, cmd, arg):
+    rc, out, err = module.run_command('%s -b' % (cmd,), data=arg)
     
-    bundle_id = None
     if  rc != 0 or \
         'Error executing command' in out or \
-        'Command not found' in out:
+        'Command not found' in out or\
+        len(err) > 0:
         reason = out
-        module.fail_json(msg=reason)
+        module.fail_json(msg=reason, cmd=cmd, cmd_err=err, cmd_return=rc)
         raise Exception(out)
 
     return out
@@ -112,15 +112,15 @@ def launch_bundles_action(client_bin, module, bundles, state):
     
     cmds = [karaf_cmd_base % (karaf_action, b[bundles_dict_key]) for b in affected_bundles]
     
-    out = run_with_check(module, '%s "%s"' % (client_bin, ' && '.join(cmds)))
+    out = run_with_check(module, client_bin, ' && '.join(cmds))
     
     return result
 
 def is_bundles_installed(client_bin, module, urls):
     tmp = frozenset(urls)
     
-    karaf_cmd = '%s "bundle:list -t 0 -u"' % (client_bin)
-    out = run_with_check(module, karaf_cmd)
+    karaf_cmd = 'bundle:list -t 0 -u'
+    out = run_with_check(module, client_bin, karaf_cmd)
     
     existing_bundles = {}
     
