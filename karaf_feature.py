@@ -64,10 +64,23 @@ PACKAGE_STATE_MAP = dict(
 )
 
 FEATURE_STATE_UNINSTALLED = 'Uninstalled'
-CLIENT_KARAF_COMMAND = "{0} 'feature:{1}'"
-CLIENT_KARAF_COMMAND_WITH_ARGS = "{0} 'feature:{1} {2}'"
+CLIENT_KARAF_COMMAND = "feature:{0}"
+CLIENT_KARAF_COMMAND_WITH_ARGS = "feature:{0} {1}"
 
 _KARAF_COLUMN_SEPARATOR = '\xe2\x94\x82'
+
+def run_with_check(module, cmd, arg):
+    rc, out, err = module.run_command('%s -b' % (cmd,), data=arg)
+    
+    if  rc != 0 or \
+        'Error executing command' in out or \
+        'Command not found' in out or\
+        len(err) > 0:
+        reason = out
+        module.fail_json(msg=reason, cmd=cmd, cmd_err=err, cmd_return=rc)
+        raise Exception(out)
+
+    return out
 
 def install_feature(client_bin, module, feature_name, feature_version):
     """Call karaf client command to install a feature
@@ -81,19 +94,16 @@ def install_feature(client_bin, module, feature_name, feature_version):
     full_qualified_name = feature_name
     if feature_version:
         full_qualified_name = full_qualified_name + "/" + feature_version
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["present"], full_qualified_name)
-    rc, out, err = module.run_command(cmd)
-
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+    
+    arg = CLIENT_KARAF_COMMAND_WITH_ARGS.format(PACKAGE_STATE_MAP["present"], full_qualified_name)
+    out = run_with_check(module, client_bin, arg)
 
     # If feature is still uninstalled, fails.
     is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
     if not is_installed:
         module.fail_json(msg='Feature fails to install')
 
-    return True, cmd, out, err
+    return True, arg, out, ''
 
 
 def uninstall_feature(client_bin, module, feature_name, feature_version):
@@ -108,18 +118,15 @@ def uninstall_feature(client_bin, module, feature_name, feature_version):
     full_qualified_name = feature_name
     if feature_version:
         full_qualified_name = full_qualified_name + "/" + feature_version
-    cmd = CLIENT_KARAF_COMMAND_WITH_ARGS.format(client_bin, PACKAGE_STATE_MAP["absent"], full_qualified_name)
-    rc, out, err = module.run_command(cmd)
-
-    if rc != 0:
-        reason = parse_error(out)
-        module.fail_json(msg=reason)
+        
+    arg = CLIENT_KARAF_COMMAND_WITH_ARGS.format(PACKAGE_STATE_MAP["absent"], full_qualified_name)
+    out = run_with_check(module, client_bin, arg)
 
     is_installed = is_feature_installed(client_bin, module, feature_name, feature_version)
     if is_installed:
         module.fail_json(msg='Feature fails to uninstall')
 
-    return True, cmd, out, err
+    return True, arg, out, ''
 
 
 def is_feature_installed(client_bin, module, feature_name, feature_version):
@@ -132,8 +139,8 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
     :return: True if feature is installed, False if not
     """
 
-    cmd = CLIENT_KARAF_COMMAND.format(client_bin, 'list -i')
-    rc, out, err = module.run_command(cmd)
+    arg = CLIENT_KARAF_COMMAND.format('list -i')
+    out = run_with_check(module, client_bin, arg)
     lines = out.split('\n')
     
     if not feature_version:
@@ -166,7 +173,6 @@ def is_feature_installed(client_bin, module, feature_name, feature_version):
                 return is_installed
 
     return is_installed
-
 
 def parse_error(string):
     reason = "reason: "

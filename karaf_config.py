@@ -80,14 +80,15 @@ def convert(val):
         except ValueError:
             pass
 
-def run_with_check(module, cmd):
-    rc, out, err = module.run_command(cmd)
+def run_with_check(module, cmd, arg):
+    rc, out, err = module.run_command('%s -b' % (cmd,), data=arg)
     
     if  rc != 0 or \
         'Error executing command' in out or \
-        'Command not found' in out:
+        'Command not found' in out or\
+        len(err) > 0:
         reason = out
-        module.fail_json(msg=reason)
+        module.fail_json(msg=reason, cmd=cmd, cmd_err=err, cmd_return=rc)
         raise Exception(out)
 
     return out
@@ -95,7 +96,7 @@ def run_with_check(module, cmd):
 def existing_properties(module, client_bin, name, new_properties):
     karaf_cmd = 'config:property-list --pid %s' % (name,)
 
-    out = run_with_check(module, '%s "%s"' % (client_bin, karaf_cmd))    
+    out = run_with_check(module, client_bin, karaf_cmd)    
     lines = out.split('\n')
     
     result = {}
@@ -140,7 +141,7 @@ def config_property_set(client_bin, module, name, new_properties):
     cmds.extend([cmd_base % (k, v) for k,v in new_properties.items() if k in need_change])
     cmds.append("config:update")
     cmd = ' && '.join(cmds)
-    out = run_with_check(module, '%s "%s"' % (client_bin, cmd))
+    out = run_with_check(module, client_bin, cmd)
     
     return result
 
@@ -164,7 +165,7 @@ def config_property_delete(client_bin, module, name, properties):
     
     cmd_base = 'config:property-delete --pid "%s" %s'
     cmd = ' && '.join([ cmd_base % (name, k) for k in properties.keys() if k in need_delete])
-    run_with_check(module, '%s "%s"' % (client_bin, cmd))
+    run_with_check(module, client_bin, cmd)
     return result
 
 def check_client_bin_path(client_bin):
@@ -195,6 +196,7 @@ def main():
     properties = module.params["properties"]
     
     client_bin = check_client_bin_path(client_bin)
+    client_bin += '' 
     
     if state == "present":
         result = config_property_set(client_bin, module, name, properties)
